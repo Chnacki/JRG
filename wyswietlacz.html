@@ -16,13 +16,13 @@
     box-shadow:0 10px 30px rgba(0,0,0,.5);
   }
   .digit-panel{
-    width:140px; height:120px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
-    display:flex; align-items:center; justify-content:center;
+    width:340px; height:110px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
+    display:flex; align-items:center; justify-content:space-evenly; padding:0 16px;
   }
-  .digit-panel span{
-    font-size:84px; font-weight:800; color:#2a0f0a; font-family:'Consolas',monospace;
+  .digit-panel .cell{
+    font-size:64px; font-weight:800; color:#2a0f0a; font-family:'Consolas',monospace;
   }
-  .digit-panel span.lit{ color:#ff3b24; text-shadow:0 0 20px #ff5a3c, 0 0 6px #ff3b24; }
+  .digit-panel .cell.lit{ color:#ff3b24; text-shadow:0 0 20px #ff5a3c, 0 0 6px #ff3b24; }
   .bell-panel{
     width:100px; height:76px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
     display:flex; align-items:center; justify-content:center;
@@ -35,7 +35,11 @@
 </head>
 <body>
   <div class="display-box">
-    <div class="digit-panel"><span id="digit">–</span></div>
+    <div class="digit-panel">
+      <span class="cell" id="cell-1">1</span>
+      <span class="cell" id="cell-2">2</span>
+      <span class="cell" id="cell-0">0</span>
+    </div>
     <div class="bell-panel" id="bellPanel">
       <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
     </div>
@@ -64,22 +68,21 @@ function beep(){
 }
 
 function render(){
-  const digit = document.getElementById('digit');
+  const active = state.alarm.active || [];
+  [1,2,0].forEach(n=>{
+    const cell = document.getElementById('cell-'+n);
+    const isActive = active.includes(n);
+    if (!isActive){ cell.classList.remove('lit'); return; }
+    if (n===1){ cell.classList.toggle('lit', blinkPhase); }
+    else { cell.classList.add('lit'); }
+  });
   const bell = document.getElementById('bellPanel');
-  const active = state.alarm.active;
-  if (active===1 || active===2 || active===0){
-    digit.textContent = active;
-    digit.className = (blinkPhase || active!==1) ? 'lit' : '';
-  } else {
-    digit.textContent = '–';
-    digit.className = '';
-  }
-  bell.className = 'bell-panel' + ((active===1 && blinkPhase) ? ' lit' : '');
+  bell.className = 'bell-panel' + ((active.includes(1) && blinkPhase) ? ' lit' : '');
 }
 
 setInterval(()=>{
   blinkPhase = !blinkPhase;
-  if (state.alarm && state.alarm.active===1 && blinkPhase) beep();
+  if (state.alarm && state.alarm.active && state.alarm.active.includes(1) && blinkPhase) beep();
   render();
 }, 500);
 
