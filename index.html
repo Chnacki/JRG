@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel dyspozycyjny — PSP JRG 4</title>
+<style>
+  :root{
+    --navy:#0a1e3f;
+    --plate:#8fa39a;
+    --plate-dark:#7c9188;
+    --yellow:#eab938;
+    --yellow-dark:#c99c1f;
+    --btn-blue:#3f8fc4;
+    --btn-blue-dark:#215f8c;
+    --lamp-off:#5c1414;
+    --lamp-on:#ff3224;
+    --lamp-glow:#ff5a4a;
+    --red-btn:#c0392b;
+    --steel:#c9d3d0;
+    --ink:#16202a;
+    font-family: "Segoe UI", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--navy);
+    display:flex; justify-content:flex-start; align-items:flex-start;
+    padding:24px; gap:24px; flex-wrap:wrap;
+  }
+  .frame{
+    width:min(50vw, 900px);
+    background:linear-gradient(180deg,#dfe6e3,#b9c4bf);
+    border:10px solid #e7ebe9;
+    border-radius:6px;
+    box-shadow:0 12px 40px rgba(0,0,0,.55);
+    padding:18px;
+  }
+  .title{
+    text-align:center; font-size:11px; letter-spacing:.5px; color:#33261a;
+    margin-bottom:10px; font-weight:700;
+  }
+  .plate{
+    background:var(--plate);
+    border:2px solid #5f6f68;
+    border-radius:4px;
+    padding:14px;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+  }
+  .section{
+    background:var(--yellow);
+    border:2px solid var(--yellow-dark);
+    border-radius:4px;
+    padding:10px;
+  }
+  .section h3{
+    margin:0 0 10px; text-align:center; font-size:13px; letter-spacing:1px;
+    color:#3a2c10;
+  }
+  .row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+  .unit{ display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .lamp{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--lamp-off);
+    box-shadow: inset 0 0 2px #000;
+  }
+  .lamp.on{ background:var(--lamp-on); box-shadow:0 0 8px 2px var(--lamp-glow);}
+  .lamp.blink{ animation: blink .5s steps(1) infinite; }
+  @keyframes blink{ 50%{ background:var(--lamp-off); box-shadow:none; } }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  .btn-sq{
+    width:44px; height:38px; border-radius:5px;
+    background:linear-gradient(180deg,#7cc0ea,var(--btn-blue));
+    border:2px solid var(--btn-blue-dark);
+    box-shadow: 0 3px 0 var(--btn-blue-dark);
+  }
+  .btn-sq:active{ transform:translateY(2px); box-shadow:none; }
+  .alarm-section{ grid-column: span 2; background:var(--steel); border:2px solid #7a8985; }
+  .alarm-title{ font-size:20px; font-weight:800; color:#8c1c1c; text-align:center; margin-bottom:10px; letter-spacing:1px;}
+  .numgrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; max-width:420px; margin:0 auto 12px; }
+  .num-unit{ display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .num-btn{
+    width:56px; height:56px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #ffd54a, var(--yellow-dark) 70%);
+    border:3px solid #a67c1c;
+    font-size:20px; font-weight:800; color:#5a1010;
+    box-shadow:0 3px 0 #8c661a;
+  }
+  .num-btn.selected{ background: radial-gradient(circle at 35% 30%, #ff7a6a, var(--lamp-on) 70%); }
+  .num-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .ctrl-row{ display:flex; justify-content:center; gap:60px; margin-top:6px;}
+  .ctrl-btn{
+    width:76px;height:44px;border-radius:6px; font-weight:700; color:#fff; font-size:12px; letter-spacing:.5px;
+  }
+  .ctrl-btn.anuluj{ background:linear-gradient(180deg,#e55b4d,var(--red-btn)); box-shadow:0 3px 0 #7c231a;}
+  .ctrl-btn.wykonaj{ background:linear-gradient(180deg,#7cc0ea,var(--btn-blue)); box-shadow:0 3px 0 var(--btn-blue-dark);}
+  .ctrl-btn:active{ transform:translateY(2px); box-shadow:none;}
+
+  .mini-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .mini-disp{
+    width:56px; height:34px; border-radius:3px; background:#16201c;
+    border:2px solid #333; display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .mini-disp .lamp{ position:absolute; top:2px; right:2px; }
+  .mini-disp span{ color:#ff5a3c; font-weight:700; font-size:13px; opacity:.25; }
+  .mini-disp.on span{ opacity:1; text-shadow:0 0 5px #ff5a3c; }
+
+  /* prawy dolny panel - wyciągi spalin */
+  .spalin-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+
+  /* ============ PANEL BOCZNY: mikrofon + wyswietlacz ============ */
+  .side{
+    display:flex; flex-direction:column; gap:20px; width:280px;
+  }
+  .mic-box{
+    background:var(--plate); border:2px solid #5f6f68; border-radius:6px; padding:16px;
+    display:flex; flex-direction:column; gap:10px; align-items:center;
+  }
+  .mic-icon{ font-size:34px; }
+  .mic-box h4{ margin:0; color:#182620; font-size:13px; letter-spacing:.5px;}
+  .comm-btn{
+    width:100%; padding:10px; border-radius:6px; font-weight:700; color:#fff; font-size:13px;
+    background:linear-gradient(180deg,#7cc0ea,var(--btn-blue)); box-shadow:0 3px 0 var(--btn-blue-dark);
+  }
+  .comm-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .comm-btn.talk.active{ background:linear-gradient(180deg,#ff8a75,var(--red-btn)); box-shadow:0 3px 0 #7c231a; }
+  .comm-btn.alarmbtn{ background:linear-gradient(180deg,#ff8a75,var(--red-btn)); box-shadow:0 3px 0 #7c231a; }
+
+  .display-box{
+    background:#0e1a14; border:6px solid #232b28; border-radius:8px; padding:16px;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+  }
+  .display-box h4{ color:#8fb0a0; margin:0; font-size:12px; letter-spacing:1px;}
+  .digit-panel{
+    width:100%; height:90px; background:#08100c; border:3px solid #1f2a24; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .digit-panel span{
+    font-size:60px; font-weight:800; color:#2a0f0a; font-family: 'Consolas', monospace;
+    transition:none;
+  }
+  .digit-panel span.lit{ color:#ff3b24; text-shadow:0 0 16px #ff5a3c, 0 0 4px #ff3b24; }
+  .bell-panel{
+    width:80px; height:56px; background:#08100c; border:3px solid #1f2a24; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .bell-panel svg{ width:34px; height:34px; }
+  .bell-panel path{ fill:#2a0f0a; }
+  .bell-panel.lit path{ fill:#ff3b24; filter:drop-shadow(0 0 6px #ff5a3c); }
+  .overlay-btn{
+    margin-top:6px; background:none; border:1px dashed #4a5b53; color:#8fb0a0; font-size:11px;
+    padding:8px; border-radius:5px; width:100%;
+  }
+  audio{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="title">PAŃSTWOWA STRAŻ POŻARNA W BYDGOSZCZY - JRG 4</div>
+  <div class="plate">
+
+    <div class="section">
+      <h3>NAWIEW</h3>
+      <div class="row">
+        <div class="unit">
+          <div class="lamp" id="lamp-nawiew"></div>
+          <button class="btn-sq" onclick="toggleSimple('nawiew')"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>OŚWIETLENIE</h3>
+      <div class="row">
+        <div class="unit"><div class="lamp" id="lamp-osw-0"></div><button class="btn-sq" onclick="toggleSimple('oswietlenie',0)"></button></div>
+        <div class="unit"><div class="lamp" id="lamp-osw-1"></div><button class="btn-sq" onclick="toggleSimple('oswietlenie',1)"></button></div>
+        <div class="unit"><div class="lamp" id="lamp-osw-2"></div><button class="btn-sq" onclick="toggleSimple('oswietlenie',2)"></button></div>
+      </div>
+    </div>
+
+    <div class="section" style="grid-column:span 2;">
+      <h3>WYCIĄGI SPALIN</h3>
+      <div class="spalin-grid">
+        <div class="unit"><div class="lamp" id="lamp-spal-0"></div><button class="btn-sq" onclick="toggleSimple('spalin',0)">1/6</button></div>
+        <div class="unit"><div class="lamp" id="lamp-spal-1"></div><button class="btn-sq" onclick="toggleSimple('spalin',1)">2/7</button></div>
+        <div class="unit"><div class="lamp" id="lamp-spal-2"></div><button class="btn-sq" onclick="toggleSimple('spalin',2)">3/8</button></div>
+        <div class="unit"><div class="lamp" id="lamp-spal-3"></div><button class="btn-sq" onclick="toggleSimple('spalin',3)">4/9</button></div>
+        <div class="unit"><div class="lamp" id="lamp-spal-4"></div><button class="btn-sq" onclick="toggleSimple('spalin',4)">5/0</button></div>
+      </div>
+    </div>
+
+    <div class="section alarm-section">
+      <div class="alarm-title">ALARM BOJOWY</div>
+      <div class="numgrid" id="numgrid"></div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn anuluj" onclick="pressAnuluj()">ANULUJ</button>
+        <button class="ctrl-btn wykonaj" onclick="pressWykonaj()">WYKONAJ</button>
+      </div>
+    </div>
+
+    <div class="section" style="grid-column:span 2;">
+      <h3>WYŚWIETLACZE</h3>
+      <div class="mini-grid" id="minigrid"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="side">
+
+  <div class="mic-box">
+    <div class="mic-icon">🎙️</div>
+    <h4>ŁĄCZNOŚĆ GŁOSOWA</h4>
+    <button class="comm-btn talk" id="talkBtn" onclick="toggleTalk()">NADAJ KOMUNIKAT</button>
+    <button class="comm-btn alarmbtn" onclick="pressAlarmSound()">ALARM</button>
+    <button class="comm-btn" onclick="pressKomunikatSound()">KOMUNIKAT</button>
+  </div>
+
+  <div class="display-box">
+    <h4>WYŚWIETLACZ ZMIANOWY</h4>
+    <div class="digit-panel"><span id="digit">0</span></div>
+    <div class="bell-panel" id="bellPanel">
+      <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
+    </div>
+    <a class="overlay-btn" href="wyswietlacz.html" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;display:block;">
+      Otwórz osobną nakładkę (wyswietlacz.html) →
+    </a>
+  </div>
+
+</div>
+
+<audio id="snd-alarm" src="Alarm_JRG.mp3" preload="auto"></audio>
+<audio id="snd-komunikat" src="Komunikat.mp3" preload="auto"></audio>
+
+<script src="shared.js"></script>
+<script>
+let state = loadState();
+const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: document.getElementById('snd-komunikat') };
+let blinkPhase = false;
+let bellCtx = null;
+
+/* ---- budowa siatki 1-0 dla ALARM BOJOWY ---- */
+const numgrid = document.getElementById('numgrid');
+[1,2,3,4,5,6,7,8,9,0].forEach(n=>{
+  const u = document.createElement('div'); u.className='num-unit';
+  u.innerHTML = `<div class="lamp" id="lamp-alarm-${n}"></div>
+                 <button class="num-btn" id="btn-alarm-${n}" onclick="selectAlarmNumber(${n})">${n}</button>`;
+  numgrid.appendChild(u);
+});
+
+/* ---- budowa siatki mini-wyswietlaczy ---- */
+const minigrid = document.getElementById('minigrid');
+[1,2,3,4,5,6,7,8,9,0].forEach((n,i)=>{
+  const d = document.createElement('div'); d.className='mini-disp'; d.onclick=()=>toggleSimple('wyswietlacze',i);
+  d.innerHTML = `<span>${n}</span><div class="lamp" id="lamp-mini-${i}"></div>`;
+  minigrid.appendChild(d);
+});
+
+function toggleSimple(cat, idx){
+  if (idx===undefined){ state[cat] = !state[cat]; }
+  else { state[cat][idx] = !state[cat][idx]; }
+  broadcastState(state);
+  render();
+}
+
+function selectAlarmNumber(n){
+  if (state.alarm.active !== null) return; // trzeba najpierw ANULUJ
+  state.alarm.pending = (state.alarm.pending === n) ? null : n;
+  broadcastState(state);
+  render();
+}
+
+function pressWykonaj(){
+  if (state.alarm.pending === null) return;
+  state.alarm.active = state.alarm.pending;
+  state.alarm.pending = null;
+  broadcastState(state);
+  render();
+}
+
+function pressAnuluj(){
+  state.alarm = { pending:null, active:null };
+  broadcastState(state);
+  render();
+}
+
+function pressAlarmSound(){
+  playLocalSound('alarm', audioEls);
+  broadcastSound('alarm');
+}
+function pressKomunikatSound(){
+  playLocalSound('komunikat', audioEls);
+  broadcastSound('komunikat');
+}
+
+let talking = false;
+async function toggleTalk(){
+  const btn = document.getElementById('talkBtn');
+  if (!talking){
+    try{ await MicBroadcaster.start(); talking=true; btn.classList.add('active'); btn.textContent='NADAWANIE... (kliknij aby zakończyć)'; }
+    catch(e){ alert('Brak dostępu do mikrofonu: '+e.message); }
+  } else {
+    MicBroadcaster.stop(); talking=false; btn.classList.remove('active'); btn.textContent='NADAJ KOMUNIKAT';
+  }
+}
+
+function beep(){
+  try{
+    if(!bellCtx) bellCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = bellCtx.createOscillator(); const g = bellCtx.createGain();
+    o.frequency.value = 1200; o.type='sine';
+    g.gain.setValueAtTime(0.15, bellCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, bellCtx.currentTime+0.18);
+    o.connect(g); g.connect(bellCtx.destination);
+    o.start(); o.stop(bellCtx.currentTime+0.2);
+  }catch(e){}
+}
+
+function render(){
+  document.getElementById('lamp-nawiew').className = 'lamp' + (state.nawiew?' on':'');
+  state.oswietlenie.forEach((v,i)=> document.getElementById('lamp-osw-'+i).className='lamp'+(v?' on':''));
+  state.spalin.forEach((v,i)=> document.getElementById('lamp-spal-'+i).className='lamp'+(v?' on':''));
+  state.wyswietlacze.forEach((v,i)=> document.getElementById('lamp-mini-'+i).className='lamp'+(v?' on':''));
+
+  [1,2,3,4,5,6,7,8,9,0].forEach(n=>{
+    const lamp = document.getElementById('lamp-alarm-'+n);
+    const btn = document.getElementById('btn-alarm-'+n);
+    lamp.className = 'lamp';
+    btn.classList.remove('selected');
+    if (state.alarm.active === n){ lamp.classList.add('on'); btn.classList.add('selected'); }
+    else if (state.alarm.pending === n){ lamp.classList.add('blink'); btn.classList.add('selected'); }
+  });
+
+  renderDisplay();
+}
+
+function renderDisplay(){
+  const digit = document.getElementById('digit');
+  const bell = document.getElementById('bellPanel');
+  const active = state.alarm.active;
+  if (active===1 || active===2 || active===0){
+    digit.textContent = active;
+    digit.className = blinkPhase || active!==1 ? 'lit' : '';
+  } else {
+    digit.textContent = '–';
+    digit.className = '';
+  }
+  bell.className = 'bell-panel' + ((active===1 && blinkPhase) ? ' lit' : '');
+}
+
+setInterval(()=>{
+  blinkPhase = !blinkPhase;
+  if (state.alarm.active===1 && blinkPhase) beep();
+  renderDisplay();
+}, 500);
+
+onRemoteMessage({
+  onState: (s)=>{ state = {...defaultState(), ...s}; render(); },
+  onSound: (name)=>{ playLocalSound(name, audioEls); },
+  onMic: (msg)=>{ MicReceiver.play(msg); }
+});
+
+render();
+</script>
+</body>
+</html>

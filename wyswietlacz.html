@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wyświetlacz zmianowy — PSP JRG 4</title>
+<style>
+  html,body{ margin:0; height:100%; background:transparent; }
+  body{
+    display:flex; align-items:center; justify-content:center; min-height:100vh;
+    font-family:"Segoe UI",Arial,sans-serif;
+  }
+  .display-box{
+    background:#0e1a14; border:6px solid #232b28; border-radius:10px; padding:20px;
+    display:flex; align-items:center; gap:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .digit-panel{
+    width:140px; height:120px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .digit-panel span{
+    font-size:84px; font-weight:800; color:#2a0f0a; font-family:'Consolas',monospace;
+  }
+  .digit-panel span.lit{ color:#ff3b24; text-shadow:0 0 20px #ff5a3c, 0 0 6px #ff3b24; }
+  .bell-panel{
+    width:100px; height:76px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .bell-panel svg{ width:48px; height:48px; }
+  .bell-panel path{ fill:#2a0f0a; }
+  .bell-panel.lit path{ fill:#ff3b24; filter:drop-shadow(0 0 8px #ff5a3c); }
+  audio{ display:none; }
+</style>
+</head>
+<body>
+  <div class="display-box">
+    <div class="digit-panel"><span id="digit">–</span></div>
+    <div class="bell-panel" id="bellPanel">
+      <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
+    </div>
+  </div>
+
+<audio id="snd-alarm" src="Alarm_JRG.mp3" preload="auto"></audio>
+<audio id="snd-komunikat" src="Komunikat.mp3" preload="auto"></audio>
+
+<script src="shared.js"></script>
+<script>
+let state = loadState();
+const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: document.getElementById('snd-komunikat') };
+let blinkPhase = false;
+let bellCtx = null;
+
+function beep(){
+  try{
+    if(!bellCtx) bellCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = bellCtx.createOscillator(); const g = bellCtx.createGain();
+    o.frequency.value = 1200; o.type='sine';
+    g.gain.setValueAtTime(0.15, bellCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, bellCtx.currentTime+0.18);
+    o.connect(g); g.connect(bellCtx.destination);
+    o.start(); o.stop(bellCtx.currentTime+0.2);
+  }catch(e){}
+}
+
+function render(){
+  const digit = document.getElementById('digit');
+  const bell = document.getElementById('bellPanel');
+  const active = state.alarm.active;
+  if (active===1 || active===2 || active===0){
+    digit.textContent = active;
+    digit.className = (blinkPhase || active!==1) ? 'lit' : '';
+  } else {
+    digit.textContent = '–';
+    digit.className = '';
+  }
+  bell.className = 'bell-panel' + ((active===1 && blinkPhase) ? ' lit' : '');
+}
+
+setInterval(()=>{
+  blinkPhase = !blinkPhase;
+  if (state.alarm && state.alarm.active===1 && blinkPhase) beep();
+  render();
+}, 500);
+
+onRemoteMessage({
+  onState: (s)=>{ state = {...defaultState(), ...s}; render(); },
+  onSound: (name)=>{ playLocalSound(name, audioEls); },
+  onMic: (msg)=>{ MicReceiver.play(msg); }
+});
+
+render();
+</script>
+</body>
+</html>
