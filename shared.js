@@ -1,4 +1,4 @@
-/* ===================== PSP JRG 4 — wspólna logika ===================== */
+/* ===================== PSP JRG 4 ===================== */
 const CH_NAME = 'psp_jrg4_channel';
 const LS_KEY  = 'psp_jrg4_state_v1';
 
@@ -7,7 +7,7 @@ const defaultState = () => ({
   oswietlenie: [false, false, false],
   spalin: [false, false, false, false, false],
   wyswietlacze: [false, false, false, false, false, false, false, false, false, false],
-  alarm: { pending: null, active: null } // pending = miga (wybrane, nie zatwierdzone), active = zatwierdzone (WYKONAJ)
+  alarm: { pending: [], active: [] }
 });
 
 function loadState() {
@@ -22,7 +22,13 @@ function saveState(state) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
-const channel = ('BroadcastChannel' in window) ? new BroadcastChannel(CH_NAME) : null;
+let channel = null;
+try {
+  if ('BroadcastChannel' in window) channel = new BroadcastChannel(CH_NAME);
+} catch (e) {
+  console.warn('BroadcastChannel niedostępny (np. strona otwarta jako plik lokalny zamiast przez serwer/http). Synchronizacja między kartami i mikrofon nie będą działać, ale dźwięki lokalne i panel będą działać normalnie.', e);
+  channel = null;
+}
 
 function broadcastState(state) {
   saveState(state);
@@ -34,16 +40,17 @@ function broadcastSound(name) {
 }
 
 function onRemoteMessage(handlers) {
-  if (!channel) return;
-  channel.onmessage = (ev) => {
-    const msg = ev.data;
-    if (!msg) return;
-    if (msg.type === 'state' && handlers.onState) handlers.onState(msg.state);
-    if (msg.type === 'sound' && handlers.onSound) handlers.onSound(msg.name);
-    if (msg.type === 'mic' && handlers.onMic) handlers.onMic(msg);
-    if (msg.type === 'mic-stop' && handlers.onMicStop) handlers.onMicStop();
-  };
-  // reakcja na zmiany w localStorage z innej karty (fallback / redundancja)
+  if (channel) {
+    channel.onmessage = (ev) => {
+      const msg = ev.data;
+      if (!msg) return;
+      if (msg.type === 'state' && handlers.onState) handlers.onState(msg.state);
+      if (msg.type === 'sound' && handlers.onSound) handlers.onSound(msg.name);
+      if (msg.type === 'mic' && handlers.onMic) handlers.onMic(msg);
+      if (msg.type === 'mic-stop' && handlers.onMicStop) handlers.onMicStop();
+    };
+  }
+  // reakcja na zmiany w localStorage
   window.addEventListener('storage', (e) => {
     if (e.key === LS_KEY && e.newValue && handlers.onState) {
       try { handlers.onState(JSON.parse(e.newValue)); } catch (err) {}
@@ -51,14 +58,14 @@ function onRemoteMessage(handlers) {
   });
 }
 
-/* ---------- Dźwięki lokalne (odtwarzane też po odebraniu broadcastu) ---------- */
+/* ---------- Dźwięki lokalne---------- */
 function playLocalSound(name, audioEls) {
   const el = audioEls[name];
   if (!el) return;
   try { el.currentTime = 0; el.play().catch(() => {}); } catch (e) {}
 }
 
-/* ---------- Mikrofon — strumieniowanie PCM między kartami tej samej przeglądarki ---------- */
+/* ---------- Mikrofon  ---------- */
 const MicBroadcaster = {
   ctx: null, stream: null, source: null, processor: null, gain: null, active: false,
   async start() {
@@ -68,7 +75,7 @@ const MicBroadcaster = {
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.processor = this.ctx.createScriptProcessor(4096, 1, 1);
     this.gain = this.ctx.createGain();
-    this.gain.gain.value = 0; // nie odtwarzamy lokalnie na głośniku (unikamy sprzężenia)
+    this.gain.gain.value = 0; 
     this.source.connect(this.processor);
     this.processor.connect(this.gain);
     this.gain.connect(this.ctx.destination);
