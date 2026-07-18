@@ -134,14 +134,14 @@
   }
   .display-box h4{ color:#8fb0a0; margin:0; font-size:12px; letter-spacing:1px;}
   .digit-panel{
-    width:100%; height:90px; background:#08100c; border:3px solid #1f2a24; border-radius:6px;
-    display:flex; align-items:center; justify-content:center;
+    width:100%; height:64px; background:#08100c; border:3px solid #1f2a24; border-radius:6px;
+    display:flex; align-items:center; justify-content:space-evenly; padding:0 8px;
   }
-  .digit-panel span{
-    font-size:60px; font-weight:800; color:#2a0f0a; font-family: 'Consolas', monospace;
-    transition:none;
+  .digit-panel .cell{
+    font-size:34px; font-weight:800; color:#2a0f0a; font-family: 'Consolas', monospace;
+    letter-spacing:2px;
   }
-  .digit-panel span.lit{ color:#ff3b24; text-shadow:0 0 16px #ff5a3c, 0 0 4px #ff3b24; }
+  .digit-panel .cell.lit{ color:#ff3b24; text-shadow:0 0 16px #ff5a3c, 0 0 4px #ff3b24; }
   .bell-panel{
     width:80px; height:56px; background:#08100c; border:3px solid #1f2a24; border-radius:6px;
     display:flex; align-items:center; justify-content:center;
@@ -221,7 +221,11 @@
 
   <div class="display-box">
     <h4>WYŚWIETLACZ ZMIANOWY</h4>
-    <div class="digit-panel"><span id="digit">0</span></div>
+    <div class="digit-panel">
+      <span class="cell" id="cell-1">1</span>
+      <span class="cell" id="cell-2">2</span>
+      <span class="cell" id="cell-0">0</span>
+    </div>
     <div class="bell-panel" id="bellPanel">
       <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
     </div>
@@ -242,7 +246,7 @@ const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: docum
 let blinkPhase = false;
 let bellCtx = null;
 
-/* ---- budowa siatki 1-0 dla ALARM BOJOWY ---- */
+/* ---- balarm bojowy ---- */
 const numgrid = document.getElementById('numgrid');
 [1,2,3,4,5,6,7,8,9,0].forEach(n=>{
   const u = document.createElement('div'); u.className='num-unit';
@@ -251,7 +255,7 @@ const numgrid = document.getElementById('numgrid');
   numgrid.appendChild(u);
 });
 
-/* ---- budowa siatki mini-wyswietlaczy ---- */
+/* ---- mini wyswietlacze ---- */
 const minigrid = document.getElementById('minigrid');
 [1,2,3,4,5,6,7,8,9,0].forEach((n,i)=>{
   const d = document.createElement('div'); d.className='mini-disp'; d.onclick=()=>toggleSimple('wyswietlacze',i);
@@ -267,22 +271,24 @@ function toggleSimple(cat, idx){
 }
 
 function selectAlarmNumber(n){
-  if (state.alarm.active !== null) return; // trzeba najpierw ANULUJ
-  state.alarm.pending = (state.alarm.pending === n) ? null : n;
+  if (state.alarm.active.includes(n)) return; // do anulwoaia
+  const i = state.alarm.pending.indexOf(n);
+  if (i>=0) state.alarm.pending.splice(i,1);
+  else state.alarm.pending.push(n);
   broadcastState(state);
   render();
 }
 
 function pressWykonaj(){
-  if (state.alarm.pending === null) return;
-  state.alarm.active = state.alarm.pending;
-  state.alarm.pending = null;
+  if (state.alarm.pending.length===0) return;
+  state.alarm.active = Array.from(new Set([...state.alarm.active, ...state.alarm.pending]));
+  state.alarm.pending = [];
   broadcastState(state);
   render();
 }
 
 function pressAnuluj(){
-  state.alarm = { pending:null, active:null };
+  state.alarm = { pending:[], active:[] };
   broadcastState(state);
   render();
 }
@@ -330,30 +336,29 @@ function render(){
     const btn = document.getElementById('btn-alarm-'+n);
     lamp.className = 'lamp';
     btn.classList.remove('selected');
-    if (state.alarm.active === n){ lamp.classList.add('on'); btn.classList.add('selected'); }
-    else if (state.alarm.pending === n){ lamp.classList.add('blink'); btn.classList.add('selected'); }
+    if (state.alarm.active.includes(n)){ lamp.classList.add('on'); btn.classList.add('selected'); }
+    else if (state.alarm.pending.includes(n)){ lamp.classList.add('blink'); btn.classList.add('selected'); }
   });
 
   renderDisplay();
 }
 
 function renderDisplay(){
-  const digit = document.getElementById('digit');
-  const bell = document.getElementById('bellPanel');
   const active = state.alarm.active;
-  if (active===1 || active===2 || active===0){
-    digit.textContent = active;
-    digit.className = blinkPhase || active!==1 ? 'lit' : '';
-  } else {
-    digit.textContent = '–';
-    digit.className = '';
-  }
-  bell.className = 'bell-panel' + ((active===1 && blinkPhase) ? ' lit' : '');
+  [1,2,0].forEach(n=>{
+    const cell = document.getElementById('cell-'+n);
+    const isActive = active.includes(n);
+    if (!isActive){ cell.classList.remove('lit'); return; }
+    if (n===1){ cell.classList.toggle('lit', blinkPhase); }
+    else { cell.classList.add('lit'); }
+  });
+  const bell = document.getElementById('bellPanel');
+  bell.className = 'bell-panel' + ((active.includes(1) && blinkPhase) ? ' lit' : '');
 }
 
 setInterval(()=>{
   blinkPhase = !blinkPhase;
-  if (state.alarm.active===1 && blinkPhase) beep();
+  if (state.alarm.active.includes(1) && blinkPhase) beep();
   renderDisplay();
 }, 500);
 
