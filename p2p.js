@@ -1,6 +1,16 @@
 /* ===================== PSP JRG 4 — warstwa P2P (WebRTC, PeerJS) ===================== */
 /* Wymaga wczytanego wcześniej: <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script> */
 
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ]
+};
+
 const ROOM = 'jrg4-fordon'; // stały, wspólny dla panelu i wyświetlacza - nie trzeba nic wpisywać
 function hostIdFor(room) {
   return 'pspjrg4-' + room + '-panel';
@@ -16,7 +26,7 @@ const P2P = {
   /* === PANEL (host) === */
   initHost(room, handlers) {
     this.room = room; this.role = 'host';
-    this.peer = new Peer(hostIdFor(room));
+    this.peer = new Peer(hostIdFor(room), { config: ICE_CONFIG });
     this.peer.on('open', () => { handlers.onStatus && handlers.onStatus('online'); });
     this.peer.on('connection', (conn) => {
       this.conns.push(conn);
@@ -58,7 +68,7 @@ const P2P = {
   /* === WYŚWIETLACZ (client) === */
   initClient(room, handlers) {
     this.room = room; this.role = 'client';
-    this.peer = new Peer();
+    this.peer = new Peer({ config: ICE_CONFIG });
     this.peer.on('open', () => {
       const conn = this.peer.connect(hostIdFor(room));
       this.conns = [conn];
