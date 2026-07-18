@@ -214,6 +214,7 @@
   <div class="mic-box">
     <div class="mic-icon">🎙️</div>
     <h4>ŁĄCZNOŚĆ GŁOSOWA</h4>
+    <div id="statusLine" style="font-size:11px; color:#182620;">łączenie…</div>
     <button class="comm-btn talk" id="talkBtn" onclick="toggleTalk()">NADAJ KOMUNIKAT</button>
     <button class="comm-btn alarmbtn" onclick="pressAlarmSound()">ALARM</button>
     <button class="comm-btn" onclick="pressKomunikatSound()">KOMUNIKAT</button>
@@ -239,14 +240,21 @@
 <audio id="snd-alarm" src="Alarm_JRG.mp3" preload="auto"></audio>
 <audio id="snd-komunikat" src="Komunikat.mp3" preload="auto"></audio>
 
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="shared.js"></script>
+<script src="p2p.js"></script>
 <script>
-let state = loadState();
+let state = defaultState();
 const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: document.getElementById('snd-komunikat') };
 let blinkPhase = false;
 let bellCtx = null;
 
-/* ---- balarm bojowy ---- */
+function setStatus(s){
+  const map = { online:'✅ gotowy, czekam na wyświetlacz', connected:'🟢 wyświetlacz podłączony', offline:'🔴 rozłączono', error:'⚠️ błąd połączenia' };
+  document.getElementById('statusLine').textContent = map[s] || s;
+}
+
+/* ---- ALARM BOJOWY ---- */
 const numgrid = document.getElementById('numgrid');
 [1,2,3,4,5,6,7,8,9,0].forEach(n=>{
   const u = document.createElement('div'); u.className='num-unit';
@@ -255,7 +263,7 @@ const numgrid = document.getElementById('numgrid');
   numgrid.appendChild(u);
 });
 
-/* ---- mini wyswietlacze ---- */
+/* ---- budowa siatki ---- */
 const minigrid = document.getElementById('minigrid');
 [1,2,3,4,5,6,7,8,9,0].forEach((n,i)=>{
   const d = document.createElement('div'); d.className='mini-disp'; d.onclick=()=>toggleSimple('wyswietlacze',i);
@@ -266,16 +274,16 @@ const minigrid = document.getElementById('minigrid');
 function toggleSimple(cat, idx){
   if (idx===undefined){ state[cat] = !state[cat]; }
   else { state[cat][idx] = !state[cat][idx]; }
-  broadcastState(state);
+  P2P.broadcastState(state);
   render();
 }
 
 function selectAlarmNumber(n){
-  if (state.alarm.active.includes(n)) return; // do anulwoaia
+  if (state.alarm.active.includes(n)) return; 
   const i = state.alarm.pending.indexOf(n);
   if (i>=0) state.alarm.pending.splice(i,1);
   else state.alarm.pending.push(n);
-  broadcastState(state);
+  P2P.broadcastState(state);
   render();
 }
 
@@ -283,33 +291,33 @@ function pressWykonaj(){
   if (state.alarm.pending.length===0) return;
   state.alarm.active = Array.from(new Set([...state.alarm.active, ...state.alarm.pending]));
   state.alarm.pending = [];
-  broadcastState(state);
+  P2P.broadcastState(state);
   render();
 }
 
 function pressAnuluj(){
   state.alarm = { pending:[], active:[] };
-  broadcastState(state);
+  P2P.broadcastState(state);
   render();
 }
 
 function pressAlarmSound(){
   playLocalSound('alarm', audioEls);
-  broadcastSound('alarm');
+  P2P.broadcastSound('alarm');
 }
 function pressKomunikatSound(){
   playLocalSound('komunikat', audioEls);
-  broadcastSound('komunikat');
+  P2P.broadcastSound('komunikat');
 }
 
 let talking = false;
 async function toggleTalk(){
   const btn = document.getElementById('talkBtn');
   if (!talking){
-    try{ await MicBroadcaster.start(); talking=true; btn.classList.add('active'); btn.textContent='NADAWANIE... (kliknij aby zakończyć)'; }
+    try{ await P2P.startMic(); talking=true; btn.classList.add('active'); btn.textContent='NADAWANIE... (kliknij aby zakończyć)'; }
     catch(e){ alert('Brak dostępu do mikrofonu: '+e.message); }
   } else {
-    MicBroadcaster.stop(); talking=false; btn.classList.remove('active'); btn.textContent='NADAJ KOMUNIKAT';
+    P2P.stopMic(); talking=false; btn.classList.remove('active'); btn.textContent='NADAJ KOMUNIKAT';
   }
 }
 
@@ -348,9 +356,7 @@ function renderDisplay(){
   [1,2,0].forEach(n=>{
     const cell = document.getElementById('cell-'+n);
     const isActive = active.includes(n);
-    if (!isActive){ cell.classList.remove('lit'); return; }
-    if (n===1){ cell.classList.toggle('lit', blinkPhase); }
-    else { cell.classList.add('lit'); }
+    cell.classList.toggle('lit', isActive && blinkPhase);
   });
   const bell = document.getElementById('bellPanel');
   bell.className = 'bell-panel' + ((active.includes(1) && blinkPhase) ? ' lit' : '');
@@ -362,13 +368,13 @@ setInterval(()=>{
   renderDisplay();
 }, 500);
 
-onRemoteMessage({
-  onState: (s)=>{ state = {...defaultState(), ...s}; render(); },
-  onSound: (name)=>{ playLocalSound(name, audioEls); },
-  onMic: (msg)=>{ MicReceiver.play(msg); }
+P2P.initHost(ROOM, {
+  getState: () => state,
+  onStatus: setStatus
 });
 
 render();
+
 </script>
 </body>
 </html>
