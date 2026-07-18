@@ -7,7 +7,7 @@
 <style>
   html,body{ margin:0; height:100%; background:transparent; }
   body{
-    display:flex; align-items:center; justify-content:center; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; min-height:100vh;
     font-family:"Segoe UI",Arial,sans-serif;
   }
   .display-box{
@@ -30,10 +30,15 @@
   .bell-panel svg{ width:48px; height:48px; }
   .bell-panel path{ fill:#2a0f0a; }
   .bell-panel.lit path{ fill:#ff3b24; filter:drop-shadow(0 0 8px #ff5a3c); }
+  .status-bar{
+    background:#0e1a14; padding:6px 14px; border-radius:8px; color:#c9d3d0; font-size:12px;
+  }
   audio{ display:none; }
 </style>
 </head>
 <body>
+  <div class="status-bar" id="statusLine">łączenie…</div>
+
   <div class="display-box">
     <div class="digit-panel">
       <span class="cell" id="cell-1">1</span>
@@ -47,13 +52,31 @@
 
 <audio id="snd-alarm" src="Alarm_JRG.mp3" preload="auto"></audio>
 <audio id="snd-komunikat" src="Komunikat.mp3" preload="auto"></audio>
+<audio id="mic-remote" autoplay></audio>
 
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="shared.js"></script>
+<script src="p2p.js"></script>
 <script>
-let state = loadState();
+let state = defaultState();
 const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: document.getElementById('snd-komunikat') };
 let blinkPhase = false;
 let bellCtx = null;
+
+function setStatus(s){
+  const map = { connecting:'🟡 łączenie z panelem…', connected:'🟢 połączono z panelem', disconnected:'🔴 rozłączono', error:'⚠️ błąd połączenia' };
+  document.getElementById('statusLine').textContent = map[s] || s;
+}
+
+function unlockAudio(){
+  [audioEls.alarm, audioEls.komunikat].forEach(el=>{
+    el.play().then(()=>{ el.pause(); el.currentTime = 0; }).catch(()=>{});
+  });
+  if(!bellCtx) bellCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (bellCtx.state === 'suspended') bellCtx.resume();
+}
+document.addEventListener('click', unlockAudio, { once:true });
+document.addEventListener('keydown', unlockAudio, { once:true });
 
 function beep(){
   try{
@@ -72,9 +95,7 @@ function render(){
   [1,2,0].forEach(n=>{
     const cell = document.getElementById('cell-'+n);
     const isActive = active.includes(n);
-    if (!isActive){ cell.classList.remove('lit'); return; }
-    if (n===1){ cell.classList.toggle('lit', blinkPhase); }
-    else { cell.classList.add('lit'); }
+    cell.classList.toggle('lit', isActive && blinkPhase);
   });
   const bell = document.getElementById('bellPanel');
   bell.className = 'bell-panel' + ((active.includes(1) && blinkPhase) ? ' lit' : '');
@@ -86,10 +107,15 @@ setInterval(()=>{
   render();
 }, 500);
 
-onRemoteMessage({
-  onState: (s)=>{ state = {...defaultState(), ...s}; render(); },
+P2P.initClient(ROOM, {
+  onState: (s)=>{ state = sanitizeState(s); render(); },
   onSound: (name)=>{ playLocalSound(name, audioEls); },
-  onMic: (msg)=>{ MicReceiver.play(msg); }
+  onStatus: setStatus,
+  onMicStream: (stream)=>{
+    const el = document.getElementById('mic-remote');
+    el.srcObject = stream;
+    el.play().catch(()=>{});
+  }
 });
 
 render();
