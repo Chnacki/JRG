@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wyświetlacz zmianowy — PSP JRG 4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Handjet:wght@700..900&display=swap" rel="stylesheet">
 <style>
   html,body{ margin:0; height:100%; background:transparent; }
   body{
@@ -11,62 +14,59 @@
     font-family:"Segoe UI",Arial,sans-serif;
   }
   .display-box{
-    background:#0e1a14; border:6px solid #232b28; border-radius:10px; padding:20px;
-    display:flex; align-items:center; gap:16px;
+    background:transparent; padding:0;
+    display:flex; align-items:center; gap:0;
+  }
+  .display-strip{
+    display:flex; align-items:stretch; justify-content:center; gap:0;
+    background:#0a0a0a; border-radius:6px; overflow:hidden;
     box-shadow:0 10px 30px rgba(0,0,0,.5);
   }
-  .digit-panel{
-    width:340px; height:110px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
-    display:flex; align-items:center; justify-content:space-evenly; padding:0 16px;
+  .display-strip .cap{ width:26px; background:linear-gradient(90deg,#3a3a3a,#1c1c1c); flex-shrink:0; }
+  .display-strip .cells{
+    display:flex; align-items:center; justify-content:space-evenly; gap:20px;
+    background:#050505; padding:24px 40px;
   }
-  .digit-panel .cell{
-    font-size:64px; font-weight:800; color:#2a0f0a; font-family:'Consolas',monospace;
+  .display-strip .cell{
+    font-size:150px; line-height:1; font-weight:800; font-family:'Handjet', monospace; color:#210a08; transition:none;
   }
-  .digit-panel .cell.lit{ color:#ff3b24; text-shadow:0 0 20px #ff5a3c, 0 0 6px #ff3b24; }
-  .bell-panel{
-    width:100px; height:76px; background:#08100c; border:3px solid #1f2a24; border-radius:8px;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .bell-panel svg{ width:48px; height:48px; }
-  .bell-panel path{ fill:#2a0f0a; }
-  .bell-panel.lit path{ fill:#ff3b24; filter:drop-shadow(0 0 8px #ff5a3c); }
-  .status-bar{
-    background:#0e1a14; padding:6px 14px; border-radius:8px; color:#c9d3d0; font-size:12px;
-  }
+  .display-strip .cell.lit{ color:#ff2a1a; text-shadow:0 0 26px #ff5a3c, 0 0 8px #ff2a1a; }
+  .bell-inline{ display:flex; align-items:center; }
+  .bell-inline svg{ width:64px; height:64px; }
+  .bell-inline path{ fill:#210a08; }
+  .bell-inline.lit path{ fill:#ff2a1a; filter:drop-shadow(0 0 10px #ff5a3c); }
   audio{ display:none; }
 </style>
 </head>
 <body>
-  <div class="status-bar" id="statusLine">łączenie…</div>
-
+  <div style="position:fixed; top:10px; left:10px; background:#0a0a0a; color:#8fb0a0; font-size:11px; padding:5px 10px; border-radius:5px;" id="statusLine">łączenie z serwerem…</div>
   <div class="display-box">
-    <div class="digit-panel">
-      <span class="cell" id="cell-1">1</span>
-      <span class="cell" id="cell-2">2</span>
-      <span class="cell" id="cell-0">0</span>
-    </div>
-    <div class="bell-panel" id="bellPanel">
-      <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
+    <div class="display-strip">
+      <div class="cap"></div>
+      <div class="cells">
+        <span class="cell" id="cell-1">1</span>
+        <span class="cell" id="cell-2">2</span>
+        <span class="cell" id="cell-0">0</span>
+        <span class="bell-inline" id="bellPanel">
+          <svg viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 0-1 1v.09A7 7 0 0 0 5 10v4l-1.7 2.55A1 1 0 0 0 4.14 18h15.72a1 1 0 0 0 .84-1.45L19 14v-4a7 7 0 0 0-6-6.91V3a1 1 0 0 0-1-1zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z"/></svg>
+        </span>
+      </div>
+      <div class="cap"></div>
     </div>
   </div>
 
 <audio id="snd-alarm" src="Alarm_JRG.mp3" preload="auto"></audio>
 <audio id="snd-komunikat" src="Komunikat.mp3" preload="auto"></audio>
-<audio id="mic-remote" autoplay></audio>
 
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <script src="shared.js"></script>
-<script src="p2p.js"></script>
+<script src="sync.js"></script>
 <script>
-let state = defaultState();
+let state = loadState();
 const audioEls = { alarm: document.getElementById('snd-alarm'), komunikat: document.getElementById('snd-komunikat') };
 let blinkPhase = false;
 let bellCtx = null;
-
-function setStatus(s){
-  const map = { connecting:'🟡 łączenie z panelem…', connected:'🟢 połączono z panelem', disconnected:'🔴 rozłączono', error:'⚠️ błąd połączenia' };
-  document.getElementById('statusLine').textContent = map[s] || s;
-}
 
 function unlockAudio(){
   [audioEls.alarm, audioEls.komunikat].forEach(el=>{
@@ -75,6 +75,7 @@ function unlockAudio(){
   if(!bellCtx) bellCtx = new (window.AudioContext||window.webkitAudioContext)();
   if (bellCtx.state === 'suspended') bellCtx.resume();
 }
+// pierwsza dowolna interakcja ze stroną (klik/klawisz) cicho odblokowuje dźwięk - wymóg przeglądarek
 document.addEventListener('click', unlockAudio, { once:true });
 document.addEventListener('keydown', unlockAudio, { once:true });
 
@@ -98,24 +99,22 @@ function render(){
     cell.classList.toggle('lit', isActive && blinkPhase);
   });
   const bell = document.getElementById('bellPanel');
-  bell.className = 'bell-panel' + ((active.includes(1) && blinkPhase) ? ' lit' : '');
+  bell.className = 'bell-inline' + ((active.length>0 && blinkPhase) ? ' lit' : '');
 }
 
 setInterval(()=>{
   blinkPhase = !blinkPhase;
-  if (state.alarm && state.alarm.active && state.alarm.active.includes(1) && blinkPhase) beep();
+  if (state.alarm && state.alarm.active && state.alarm.active.length>0 && blinkPhase) beep();
   render();
 }, 500);
 
-P2P.initClient(ROOM, {
+onRemoteMessage({
   onState: (s)=>{ state = sanitizeState(s); render(); },
-  onSound: (name)=>{ playLocalSound(name, audioEls); },
-  onStatus: setStatus,
-  onMicStream: (stream)=>{
-    const el = document.getElementById('mic-remote');
-    el.srcObject = stream;
-    el.play().catch(()=>{});
-  }
+  onSound: (name)=>{ playLocalSound(name, audioEls); }
+});
+setSyncStatusCallback((s)=>{
+  const map = { SUBSCRIBED:'połączono z serwerem', CHANNEL_ERROR:'błąd połączenia', TIMED_OUT:'przekroczono czas', CLOSED:'rozłączono' };
+  document.getElementById('statusLine').textContent = map[s] || s;
 });
 
 render();
