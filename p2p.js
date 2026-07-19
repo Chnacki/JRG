@@ -18,15 +18,22 @@ function hostIdFor(room) {
 
 const P2P = {
   peer: null,
-  conns: [],      // (host) połączenia danych z podłączonymi wyświetlaczami
-  calls: [],      // (host) aktywne połączenia audio (mikrofon) do wyświetlaczy
+  conns: [],
+  calls: [],
   room: null,
-  role: null,     // 'host' | 'client'
+  role: null,
+  _handlers: null,
+  _retryTimer: null,
 
   /* === PANEL (host) === */
   initHost(room, handlers) {
-    this.room = room; this.role = 'host';
-    this.peer = new Peer(hostIdFor(room), { config: ICE_CONFIG });
+    this.room = room; this.role = 'host'; this._handlers = handlers;
+    this._createHostPeer();
+    this._setupUnload();
+  },
+  _createHostPeer() {
+    const handlers = this._handlers;
+    this.peer = new Peer(hostIdFor(this.room), { config: ICE_CONFIG, debug: 1 });
     this.peer.on('open', () => { handlers.onStatus && handlers.onStatus('online'); });
     this.peer.on('connection', (conn) => {
       this.conns.push(conn);
@@ -38,9 +45,26 @@ const P2P = {
         this.conns = this.conns.filter(c => c !== conn);
         if (this.conns.length === 0) handlers.onStatus && handlers.onStatus('online');
       });
+      conn.on('error', () => {
+        this.conns = this.conns.filter(c => c !== conn);
+      });
     });
-    this.peer.on('error', (e) => { console.warn('PeerJS error:', e); handlers.onStatus && handlers.onStatus('error'); });
-    this.peer.on('disconnected', () => { handlers.onStatus && handlers.onStatus('offline'); });
+    this.peer.on('error', (e) => {
+      console.warn('PeerJS (host) error:', e && e.type, e);
+      handlers.onStatus && handlers.onStatus('error');
+      this._scheduleRetry(() => this._createHostPeer());
+    });
+    this.peer.on('disconnected', () => {
+      handlers.onStatus && handlers.onStatus('offline');
+      try { this.peer.reconnect(); } catch (e) { this._scheduleRetry(() => this._createHostPeer()); }
+    });
+  },
+  _scheduleRetry(fn) {
+    if (this._retryTimer) return;
+    this._retryTimer = setTimeout(() => { this._retryTimer = null; fn(); }, 4000);
+  },
+  _setupUnload() {
+    window.addEventListener('beforeunload', () => { try { this.peer && this.peer.destroy(); } catch (e) {} });
   },
   broadcastState(state) {
     this.conns.forEach(c => { try { c.send({ type: 'state', state }); } catch (e) {} });
@@ -67,25 +91,45 @@ const P2P = {
 
   /* === WYŚWIETLACZ (client) === */
   initClient(room, handlers) {
-    this.room = room; this.role = 'client';
-    this.peer = new Peer({ config: ICE_CONFIG });
-    this.peer.on('open', () => {
-      const conn = this.peer.connect(hostIdFor(room));
-      this.conns = [conn];
-      handlers.onStatus && handlers.onStatus('connecting');
-      conn.on('open', () => { handlers.onStatus && handlers.onStatus('connected'); });
-      conn.on('data', (data) => {
-        if (!data) return;
-        if (data.type === 'state' && handlers.onState) handlers.onState(data.state);
-        if (data.type === 'sound' && handlers.onSound) handlers.onSound(data.name);
-      });
-      conn.on('close', () => { handlers.onStatus && handlers.onStatus('disconnected'); });
-    });
+    this.room = room; this.role = 'client'; this._handlers = handlers;
+    this._createClientPeer();
+    this._setupUnload();
+  },
+  _createClientPeer() {
+    const handlers = this._handlers;
+    this.peer = new Peer({ config: ICE_CONFIG, debug: 1 });
+    this.peer.on('open', () => { this._connectToHost(handlers); });
     this.peer.on('call', (call) => {
-      call.answer(); // odbieramy strumień mikrofonu z panelu
+      call.answer();
       call.on('stream', (remoteStream) => { handlers.onMicStream && handlers.onMicStream(remoteStream); });
     });
-    this.peer.on('error', (e) => { console.warn('PeerJS error:', e); handlers.onStatus && handlers.onStatus('error'); });
-    this.peer.on('disconnected', () => { handlers.onStatus && handlers.onStatus('offline'); });
+    this.peer.on('error', (e) => {
+      console.warn('PeerJS (client) error:', e && e.type, e);
+      handlers.onStatus && handlers.onStatus('error');
+      this._scheduleRetry(() => this._createClientPeer());
+    });
+    this.peer.on('disconnected', () => {
+      handlers.onStatus && handlers.onStatus('disconnected');
+      try { this.peer.reconnect(); } catch (e) { this._scheduleRetry(() => this._createClientPeer()); }
+    });
+  },
+  _connectToHost(handlers) {
+    const conn = this.peer.connect(hostIdFor(this.room), { reliable: true });
+    this.conns = [conn];
+    handlers.onStatus && handlers.onStatus('connecting');
+    conn.on('open', () => { handlers.onStatus && handlers.onStatus('connected'); });
+    conn.on('data', (data) => {
+      if (!data) return;
+      if (data.type === 'state' && handlers.onState) handlers.onState(data.state);
+      if (data.type === 'sound' && handlers.onSound) handlers.onSound(data.name);
+    });
+    conn.on('close', () => {
+      handlers.onStatus && handlers.onStatus('disconnected');
+      this._scheduleRetry(() => this._connectToHost(handlers));
+    });
+    conn.on('error', () => {
+      handlers.onStatus && handlers.onStatus('error');
+      this._scheduleRetry(() => this._connectToHost(handlers));
+    });
   }
 };
